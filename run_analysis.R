@@ -1,52 +1,51 @@
-zipUrl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
-zipFile <- "UCI HAR Dataset.zip"
+library(plyr)
+if(!file.exists("./getcleandata")){dir.create("./getcleandata")}
+fileurl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(fileurl, destfile = "./getcleandata/projectdataset.zip")
 
-if (!file.exists(zipFile)) {
-  download.file(zipUrl, zipFile, mode = "wb")
-}
+unzip(zipfile = "./getcleandata/projectdataset.zip", exdir = "./getcleandata")
 
-# unzip zip file containing data if data directory doesn't already exist
-pathdata <- "UCI HAR Dataset"
-if (!file.exists(pathdata)) {
-  unzip(zipFile)
-}
+x_train <- read.table("./getcleandata/UCI HAR Dataset/train/X_train.txt")
+y_train <- read.table("./getcleandata/UCI HAR Dataset/train/y_train.txt")
+subject_train <- read.table("./getcleandata/UCI HAR Dataset/train/subject_train.txt")
 
-xtrain = read.table(file.path(pathdata, "train", "X_train.txt"),header = FALSE)
-ytrain = read.table(file.path(pathdata, "train", "y_train.txt"),header = FALSE)
-subject_train = read.table(file.path(pathdata, "train", "subject_train.txt"),header = FALSE)
+x_test <- read.table("./getcleandata/UCI HAR Dataset/test/X_test.txt")
+y_test <- read.table("./getcleandata/UCI HAR Dataset/test/y_test.txt")
+subject_test <- read.table("./getcleandata/UCI HAR Dataset/test/subject_test.txt")
 
-xtest = read.table(file.path(pathdata, "test", "X_test.txt"),header = FALSE)
-ytest = read.table(file.path(pathdata, "test", "y_test.txt"),header = FALSE)
-subject_test = read.table(file.path(pathdata, "test", "subject_test.txt"),header = FALSE)
+features <- read.table("./getcleandata/UCI HAR Dataset/features.txt")
 
-features = read.table(file.path(pathdata, "features.txt"),header = FALSE)
+activityLabels = read.table("./getcleandata/UCI HAR Dataset/activity_labels.txt")
 
-activityLabels = read.table(file.path(pathdata, "activity_labels.txt"),header = FALSE)
+colnames(x_train) <- features[,2]
+colnames(y_train) <- "activityID"
+colnames(subject_train) <- "subjectID"
 
-colnames(xtrain) = features[,2]
-colnames(ytrain) = "activityId"
-colnames(subject_train) = "subjectId"
+colnames(x_test) <- features[,2]
+colnames(y_test) <- "activityID"
+colnames(subject_test) <- "subjectID"
 
-colnames(xtest) = features[,2]
-colnames(ytest) = "activityId"
-colnames(subject_test) = "subjectId"
+colnames(activityLabels) <- c("activityID", "activityType")
 
-colnames(activityLabels) <- c('activityId','activityType')
+alltrain <- cbind(y_train, subject_train, x_train)
+alltest <- cbind(y_test, subject_test, x_test)
+finaldataset <- rbind(alltrain, alltest)
 
-mrg_train = cbind(ytrain, subject_train, xtrain)
-mrg_test = cbind(ytest, subject_test, xtest)
+colNames <- colnames(finaldataset)
 
-setAllInOne = rbind(mrg_train, mrg_test)
+mean_and_std <- (grepl("activityID", colNames) |
+                   grepl("subjectID", colNames) |
+                   grepl("mean..", colNames) |
+                   grepl("std...", colNames)
+)
 
-colNames = colnames(setAllInOne)
+setforMeanandStd <- finaldataset[ , mean_and_std == TRUE]
 
-mean_and_std = (grepl("activityId" , colNames) | grepl("subjectId" , colNames) | grepl("mean.." , colNames) | grepl("std.." , colNames))
+setWithActivityNames <- merge(setforMeanandStd, activityLabels,
+                              by = "activityID",
+                              all.x = TRUE)
 
-setForMeanAndStd <- setAllInOne[ , mean_and_std == TRUE]
+tidySet <- aggregate(. ~subjectID + activityID, setWithActivityNames, mean)
+tidySet <- tidySet[order(tidySet$subjectID, tidySet$activityID), ]
 
-setWithActivityNames = merge(setForMeanAndStd, activityLabels, by='activityId', all.x=TRUE)
-
-secTidySet <- aggregate(. ~subjectId + activityId, setWithActivityNames, mean)
-secTidySet <- secTidySet[order(secTidySet$subjectId, secTidySet$activityId),]
-
-write.table(secTidySet, "secTidySet.txt", row.name=FALSE)
+write.table(tidySet, "tidySet.txt", row.names = FALSE)
